@@ -55,7 +55,7 @@ def training_set(
         except Exception:
             pass
 
-    months_in = ", ".join(f"\\\\'{m}\\\\'" for m in TRAINING_WINDOW)
+    months_in = ", ".join(f"''{m}''" for m in TRAINING_WINDOW)
     redshift.execute(
         # 1. Training features (10% sample: ~950k rows for fast, robust training)
         f"UNLOAD ('select pickup_zone_id, dropoff_zone_id, pickup_hour, pickup_dow, duration_min "
@@ -63,7 +63,7 @@ def training_set(
         f"TO '{train_uri}' IAM_ROLE default FORMAT AS PARQUET ALLOWOVERWRITE PARALLEL OFF",
         # 2. Holdout features (5% sample: ~170k rows for holdout evaluation)
         f"UNLOAD ('select pickup_zone_id, dropoff_zone_id, pickup_hour, pickup_dow, duration_min "
-        f"from staging.trip_features where trip_month = \\\\'{HOLDOUT_MONTH}\\\\' and random() < 0.05') "
+        f"from staging.trip_features where trip_month = ''{HOLDOUT_MONTH}'' and random() < 0.05') "
         f"TO '{holdout_uri}' IAM_ROLE default FORMAT AS PARQUET ALLOWOVERWRITE PARALLEL OFF",
         # 3. Zone-pair distance lookup from the training window only
         f"UNLOAD ('select pickup_zone_id, dropoff_zone_id, median(trip_distance) as est_distance_miles "
