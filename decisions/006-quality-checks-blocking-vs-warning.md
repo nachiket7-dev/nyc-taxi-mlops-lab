@@ -12,7 +12,11 @@ Making all quality checks blocking, or using soft non-blocking warnings for all 
 
 ## Why
 
-Corrupted structural records—such as null timestamps (`pickup_at`, `dropoff_at`), non-positive durations (`duration_min <= 0`), or an empty partition—indicate unparseable or fundamentally corrupted data that would produce invalid metrics in `marts.zone_hour_stats`. These must block downstream assets. Conversely, real-world TLC taxi datasets routinely contain sensor noise and statistical outliers (e.g., trips > 180 min, or unknown zone IDs like 264/265). Halting production runs for expected noisy records creates brittle pipelines. We enforce hard failure (0 tolerance) for structural integrity, while setting alert thresholds (< 2% on duration outliers and < 5% on unknown zones) as non-blocking warnings.
+Corrupted structural records—such as null timestamps (`pickup_at`, `dropoff_at`) or an empty partition—indicate unparseable or fundamentally corrupted data that would produce invalid metrics in `marts.zone_hour_stats`. These must block downstream assets with zero tolerance.
+
+Empirical measurement of real-world NYC TLC Yellow Taxi months shows ~0.03% (870 out of ~3,000,000 trips in 2024-01) with non-positive durations (`duration_min <= 0`), caused by immediate meter aborts or trip recording glitches. Downstream aggregations in `marts.zone_hour_stats` and ML training in `trip_features` explicitly filter out trips with `duration_min <= 0`. Therefore, rather than a brittle 0-tolerance rule that would break valid monthly production ingests, we set a strict blocking threshold of `< 0.1%` (1 in 1,000 trips) on non-positive durations. A corrupted batch (such as inverted timestamps, schema shifts, or blank files) exceeds this threshold by orders of magnitude and is halted.
+
+Conversely, statistical outliers (trips > 180 min, or unknown zones like 264/265) reflect real city conditions. Halting production runs for expected noisy records creates brittle pipelines. We enforce alert thresholds (< 2% on duration outliers and < 5% on unknown zones) as non-blocking warnings.
 
 ## What would show this was wrong
 
