@@ -1,6 +1,6 @@
-"""S1: the raw_trips asset.
+"""S1: the raw_trips asset (and the COPY that loads it).
 
-One partition per month (partitions.trip_months), depending on trip_files. COPY the month's file into
+Load one month into ingest.raw_trips idempotently: re-running a month must never leave duplicate rows.
 Redshift with the LabRole attached to the cluster (`iam_role default`), so that re-running a month never
 duplicates its rows. The landing columns come from contracts/trips.schema.yaml
 (contracts.redshift_columns). Decision points: COPY vs Spectrum; dist and sort keys.
@@ -34,13 +34,12 @@ def raw_trips(
     create_schema_sql = "create schema if not exists ingest;"
     create_table_sql = f"""
     create table if not exists ingest.raw_trips (
-      source_file varchar(64) default '{file_name}' not null,
+      source_file varchar(64),
       {cols}
     )
     diststyle even
     sortkey (tpep_pickup_datetime);
     """
-    alter_default_sql = f"alter table ingest.raw_trips alter column source_file set default '{file_name}';"
     delete_sql = f"delete from ingest.raw_trips where source_file = '{file_name}';"
     copy_sql = f"""
     copy ingest.raw_trips ({col_names})
@@ -53,7 +52,6 @@ def raw_trips(
     redshift.execute(
         create_schema_sql,
         create_table_sql,
-        alter_default_sql,
         delete_sql,
         copy_sql,
         ensure_source_sql,
